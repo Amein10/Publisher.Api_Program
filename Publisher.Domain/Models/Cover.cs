@@ -13,7 +13,7 @@ namespace Publisher.Domain.Models
         public bool DigitalOnly { get; set; }
 
         public int BookId { get; set; }
-        public List<ArtistCover> ArtistLinks { get; set; } = new();
+        public List<ArtistCover> ArtistCovers { get; set; } = new();
         public Book? Book { get; set; }
         
     }
