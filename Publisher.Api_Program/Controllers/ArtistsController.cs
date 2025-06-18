@@ -14,14 +14,14 @@ namespace Publisher.Api_Program.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Artist>>> GetArtists()
         {
-            return Ok(await _context.Artists.Include(a => a.ArtistLinks).ToListAsync());
+            return Ok(await _context.Artists.Include(a => a.ArtistCovers).ToListAsync());
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Artist>> GetArtistById(int id)
         {
             var artist = await _context.Artists
-                .Include(a => a.ArtistLinks)
+                .Include(a => a.ArtistCovers)
                 .ThenInclude(al => al.Cover)
                 .FirstOrDefaultAsync(a => a.ArtistId == id);
 

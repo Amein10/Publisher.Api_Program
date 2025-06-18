@@ -16,7 +16,7 @@ namespace Publisher.Api_Program.Controllers
         {
             return Ok(await _context.Covers
                 .Include(c => c.Book)
-                .Include(c => c.ArtistLinks)
+                .Include(c => c.ArtistCovers)
                     .ThenInclude(al => al.Artist)
                 .ToListAsync());
         }
@@ -26,7 +26,7 @@ namespace Publisher.Api_Program.Controllers
         {
             var cover = await _context.Covers
                 .Include(c => c.Book)
-                .Include(c => c.ArtistLinks)
+                .Include(c => c.ArtistCovers)
                     .ThenInclude(al => al.Artist)
                 .FirstOrDefaultAsync(c => c.CoverId == id);
 

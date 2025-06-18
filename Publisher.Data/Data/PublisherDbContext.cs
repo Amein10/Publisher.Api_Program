@@ -22,12 +22,12 @@ namespace Publisher.Data.Data
 
             modelBuilder.Entity<ArtistCover>()
                 .HasOne(ac => ac.Artist)
-                .WithMany(a => a.ArtistLinks)
+                .WithMany(a => a.ArtistCovers)
                 .HasForeignKey(ac => ac.ArtistId);
 
             modelBuilder.Entity<ArtistCover>()
                 .HasOne(ac => ac.Cover)
-                .WithMany(c => c.ArtistLinks)
+                .WithMany(c => c.ArtistCovers)
                 .HasForeignKey(ac => ac.CoverId);
 
             modelBuilder.Entity<Book>()
