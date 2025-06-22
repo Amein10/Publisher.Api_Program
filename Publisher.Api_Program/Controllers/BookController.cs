@@ -1,80 +1,168 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Publisher.Data.Data;
+using Publisher.Domain.Dtos;
 using Publisher.Domain.Models;
+using Publisher.Domain.Repositories;
 
 namespace Publisher.Api_Program.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class BooksController(PublisherDbContext context) : ControllerBase
+    public class BooksController : ControllerBase
     {
-        private readonly PublisherDbContext _context = context;
+        private readonly IBookRepository _bookRepo;
+
+        public BooksController(IBookRepository bookRepo)
+        {
+            _bookRepo = bookRepo;
+        }
 
         [HttpGet]
-        public async Task<ActionResult<List<Book>>> GetBooks()
+        public async Task<ActionResult<List<BookDto>>> GetBooks()
         {
-            return Ok(await _context.Books
-                .Include(b => b.Author)
-                .Include(b => b.Cover)
-                .ToListAsync());
+            var books = await _bookRepo.GetAllAsync();
+
+            var bookDtos = books.Select(book => new BookDto
+            {
+                BookId = book.BookId,
+                Title = book.Title,
+                PublishDate = book.PublishDate,
+                BasePrice = book.BasePrice,
+                AuthorId = book.AuthorId,
+                AuthorName = book.Author != null ? $"{book.Author.FirstName} {book.Author.LastName}" : null,
+                CoverId = book.Cover?.CoverId,
+                CoverTitle = book.Cover?.Title
+            }).ToList();
+
+            return Ok(bookDtos);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Book>> GetBookById(int id)
+        public async Task<ActionResult<BookDto>> GetBookById(int id)
         {
-            var book = await _context.Books
-                .Include(b => b.Author)
-                .Include(b => b.Cover)
-                .FirstOrDefaultAsync(b => b.BookId == id);
+            var book = await _bookRepo.GetByIdAsync(id);
 
             if (book == null)
                 return NotFound();
 
-            return Ok(book);
+            var bookDto = new BookDto
+            {
+                BookId = book.BookId,
+                Title = book.Title,
+                PublishDate = book.PublishDate,
+                BasePrice = book.BasePrice,
+                AuthorId = book.AuthorId,
+                AuthorName = book.Author != null ? $"{book.Author.FirstName} {book.Author.LastName}" : null,
+                CoverId = book.Cover?.CoverId,
+                CoverTitle = book.Cover?.Title
+            };
+
+            return Ok(bookDto);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Book>> AddBook(Book newBook)
+        public async Task<ActionResult<BookDto>> AddBook(CreateBookDto dto)
         {
-            if (newBook == null)
+            if (dto == null)
                 return BadRequest();
 
-            _context.Books.Add(newBook);
-            await _context.SaveChangesAsync();
+            var newBook = new Book
+            {
+                Title = dto.Title,
+                PublishDate = dto.PublishDate,
+                BasePrice = dto.BasePrice,
+                AuthorId = dto.AuthorId,
+            };
 
-            return CreatedAtAction(nameof(GetBookById), new { id = newBook.BookId }, newBook);
+            await _bookRepo.AddAsync(newBook);
+
+            var bookDto = new BookDto
+            {
+                BookId = newBook.BookId,
+                Title = newBook.Title,
+                PublishDate = newBook.PublishDate,
+                BasePrice = newBook.BasePrice,
+                AuthorId = newBook.AuthorId,
+                AuthorName = null,
+                CoverId = null,
+                CoverTitle = null
+            };
+
+            return CreatedAtAction(nameof(GetBookById), new { id = newBook.BookId }, bookDto);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateBook(int id, Book updatedBook)
+        public async Task<IActionResult> UpdateBook(int id, CreateBookDto dto)
         {
-            var book = await _context.Books.FindAsync(id);
+            var book = await _bookRepo.GetByIdAsync(id);
             if (book == null)
                 return NotFound();
 
-            book.Title = updatedBook.Title;
-            book.PublishDate = updatedBook.PublishDate;
-            book.BasePrice = updatedBook.BasePrice;
-            book.AuthorId = updatedBook.AuthorId;
-            // Opdater evt. cover mv. hvis nødvendigt
+            book.Title = dto.Title;
+            book.PublishDate = dto.PublishDate;
+            book.BasePrice = dto.BasePrice;
+            book.AuthorId = dto.AuthorId;
 
-            await _context.SaveChangesAsync();
+            await _bookRepo.UpdateAsync(book);
 
-            return Ok(book);
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBook(int id)
         {
-            var book = await _context.Books.FindAsync(id);
+            var book = await _bookRepo.GetByIdAsync(id);
             if (book == null)
                 return NotFound();
 
-            _context.Books.Remove(book);
-            await _context.SaveChangesAsync();
+            await _bookRepo.DeleteAsync(id);
 
-            return Ok(book);
+            return NoContent();
         }
+
+        [HttpGet("ByAuthor/{authorId}")]
+        public async Task<ActionResult<List<BookDto>>> GetBooksByAuthor(int authorId)
+        {
+            var books = await _bookRepo.GetAllAsync();
+            var filteredBooks = books.Where(b => b.AuthorId == authorId).ToList();
+
+            var bookDtos = filteredBooks.Select(book => new BookDto
+            {
+                BookId = book.BookId,
+                Title = book.Title,
+                PublishDate = book.PublishDate,
+                BasePrice = book.BasePrice,
+                AuthorId = book.AuthorId,
+                AuthorName = book.Author != null ? $"{book.Author.FirstName} {book.Author.LastName}" : null,
+                CoverId = book.Cover?.CoverId,
+                CoverTitle = book.Cover?.Title
+            }).ToList();
+
+            return Ok(bookDtos);
+        }
+
+        [HttpGet("Search")]
+        public async Task<ActionResult<List<BookDto>>> SearchBooks([FromQuery] string title)
+        {
+            var books = await _bookRepo.GetAllAsync();
+            var filteredBooks = books
+                .Where(b => b.Title != null && b.Title.Contains(title, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var bookDtos = filteredBooks.Select(book => new BookDto
+            {
+                BookId = book.BookId,
+                Title = book.Title,
+                PublishDate = book.PublishDate,
+                BasePrice = book.BasePrice,
+                AuthorId = book.AuthorId,
+                AuthorName = book.Author != null ? $"{book.Author.FirstName} {book.Author.LastName}" : null,
+                CoverId = book.Cover?.CoverId,
+                CoverTitle = book.Cover?.Title
+            }).ToList();
+
+            return Ok(bookDtos);
+        }
+
+
     }
 }

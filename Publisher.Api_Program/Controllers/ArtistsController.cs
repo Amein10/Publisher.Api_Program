@@ -1,75 +1,121 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Publisher.Data.Data;
+using Publisher.Domain.Dtos;
 using Publisher.Domain.Models;
+using Publisher.Domain.Repositories;
+
 
 namespace Publisher.Api_Program.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ArtistsController(PublisherDbContext context) : ControllerBase
+    public class ArtistsController : ControllerBase
     {
-        private readonly PublisherDbContext _context = context;
+        private readonly IArtistRepository _artistRepo;
 
-        [HttpGet]
-        public async Task<ActionResult<List<Artist>>> GetArtists()
+        // Dependency Injection af repository
+        public ArtistsController(IArtistRepository artistRepo)
         {
-            return Ok(await _context.Artists.Include(a => a.ArtistCovers).ToListAsync());
+            _artistRepo = artistRepo;
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Artist>> GetArtistById(int id)
+        // GET: api/Artists
+        [HttpGet]
+        public async Task<ActionResult<List<ArtistDto>>> GetArtists()
         {
-            var artist = await _context.Artists
-                .Include(a => a.ArtistCovers)
-                .ThenInclude(al => al.Cover)
-                .FirstOrDefaultAsync(a => a.ArtistId == id);
+            var artists = await _artistRepo.GetAllAsync();
+
+            var artistDtos = artists.Select(artist => new ArtistDto
+            {
+                ArtistId = artist.ArtistId,
+                FirstName = artist.FirstName,
+                LastName = artist.LastName,
+                ArtistCovers = artist.ArtistCovers.Select(ac => new ArtistCoverShortDto
+                {
+                    CoverId = ac.CoverId,
+                    CoverTitle = ac.Cover?.Title
+                }).ToList()
+            }).ToList();
+
+            return Ok(artistDtos);
+        }
+
+        // GET: api/Artists/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ArtistDto>> GetArtistById(int id)
+        {
+            var artist = await _artistRepo.GetByIdAsync(id);
 
             if (artist == null)
                 return NotFound();
 
-            return Ok(artist);
+            var artistDto = new ArtistDto
+            {
+                ArtistId = artist.ArtistId,
+                FirstName = artist.FirstName,
+                LastName = artist.LastName,
+                ArtistCovers = artist.ArtistCovers.Select(ac => new ArtistCoverShortDto
+                {
+                    CoverId = ac.CoverId,
+                    CoverTitle = ac.Cover?.Title
+                }).ToList()
+            };
+
+            return Ok(artistDto);
         }
 
+        // POST: api/Artists
         [HttpPost]
-        public async Task<ActionResult<Artist>> AddArtist(Artist newArtist)
+        public async Task<ActionResult<ArtistDto>> AddArtist(CreateArtistDto dto)
         {
-            if (newArtist == null)
+            if (dto == null)
                 return BadRequest();
 
-            _context.Artists.Add(newArtist);
-            await _context.SaveChangesAsync();
+            var newArtist = new Artist
+            {
+                FirstName = dto.FirstName,
+                LastName = dto.LastName
+            };
 
-            return CreatedAtAction(nameof(GetArtistById), new { id = newArtist.ArtistId }, newArtist);
+            await _artistRepo.AddAsync(newArtist);
+
+            var artistDto = new ArtistDto
+            {
+                ArtistId = newArtist.ArtistId,
+                FirstName = newArtist.FirstName,
+                LastName = newArtist.LastName,
+                ArtistCovers = new List<ArtistCoverShortDto>()
+            };
+
+            return CreatedAtAction(nameof(GetArtistById), new { id = newArtist.ArtistId }, artistDto);
         }
 
+        // PUT: api/Artists/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateArtist(int id, Artist updatedArtist)
+        public async Task<IActionResult> UpdateArtist(int id, CreateArtistDto dto)
         {
-            var artist = await _context.Artists.FindAsync(id);
+            var artist = await _artistRepo.GetByIdAsync(id);
             if (artist == null)
                 return NotFound();
 
-            artist.FirstName = updatedArtist.FirstName;
-            artist.LastName = updatedArtist.LastName;
-            // Du kan tilføje flere felter her hvis det bliver nødvendigt.
+            artist.FirstName = dto.FirstName;
+            artist.LastName = dto.LastName;
 
-            await _context.SaveChangesAsync();
+            await _artistRepo.UpdateAsync(artist);
 
-            return Ok(artist);
+            return NoContent();
         }
 
+        // DELETE: api/Artists/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteArtist(int id)
         {
-            var artist = await _context.Artists.FindAsync(id);
+            var artist = await _artistRepo.GetByIdAsync(id);
             if (artist == null)
                 return NotFound();
 
-            _context.Artists.Remove(artist);
-            await _context.SaveChangesAsync();
+            await _artistRepo.DeleteAsync(id);
 
-            return Ok(artist);
+            return NoContent();
         }
     }
 }

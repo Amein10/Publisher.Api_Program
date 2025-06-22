@@ -1,81 +1,124 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Publisher.Data.Data;
+using Publisher.Domain.Dtos;
 using Publisher.Domain.Models;
+using Publisher.Domain.Repositories;
 
 namespace Publisher.Api_Program.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CoversController(PublisherDbContext context) : ControllerBase
+    public class CoverController : ControllerBase
     {
-        private readonly PublisherDbContext _context = context;
+        private readonly ICoverRepository _coverRepo;
+
+        public CoverController(ICoverRepository coverRepo)
+        {
+            _coverRepo = coverRepo;
+        }
 
         [HttpGet]
-        public async Task<ActionResult<List<Cover>>> GetCovers()
+        public async Task<ActionResult<List<CoverDto>>> GetCovers()
         {
-            return Ok(await _context.Covers
-                .Include(c => c.Book)
-                .Include(c => c.ArtistCovers)
-                    .ThenInclude(al => al.Artist)
-                .ToListAsync());
+            var covers = await _coverRepo.GetAllAsync();
+
+            var coverDtos = covers.Select(cover => new CoverDto
+            {
+                CoverId = cover.CoverId,
+                Title = cover.Title,
+                DigitalOnly = cover.DigitalOnly,
+                BookId = cover.BookId,
+                BookTitle = cover.Book?.Title,
+                Artists = cover.ArtistCovers.Select(ac => new CoverArtistShortDto
+                {
+                    ArtistId = ac.ArtistId,
+                    FirstName = ac.Artist?.FirstName,
+                    LastName = ac.Artist?.LastName
+                }).ToList()
+            }).ToList();
+
+            return Ok(coverDtos);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Cover>> GetCoverById(int id)
+        public async Task<ActionResult<CoverDto>> GetCoverById(int id)
         {
-            var cover = await _context.Covers
-                .Include(c => c.Book)
-                .Include(c => c.ArtistCovers)
-                    .ThenInclude(al => al.Artist)
-                .FirstOrDefaultAsync(c => c.CoverId == id);
+            var cover = await _coverRepo.GetByIdAsync(id);
 
             if (cover == null)
                 return NotFound();
 
-            return Ok(cover);
+            var coverDto = new CoverDto
+            {
+                CoverId = cover.CoverId,
+                Title = cover.Title,
+                DigitalOnly = cover.DigitalOnly,
+                BookId = cover.BookId,
+                BookTitle = cover.Book?.Title,
+                Artists = cover.ArtistCovers.Select(ac => new CoverArtistShortDto
+                {
+                    ArtistId = ac.ArtistId,
+                    FirstName = ac.Artist?.FirstName,
+                    LastName = ac.Artist?.LastName
+                }).ToList()
+            };
+
+            return Ok(coverDto);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Cover>> AddCover(Cover newCover)
+        public async Task<ActionResult<CoverDto>> AddCover(CreateCoverDto dto)
         {
-            if (newCover == null)
+            if (dto == null)
                 return BadRequest();
 
-            _context.Covers.Add(newCover);
-            await _context.SaveChangesAsync();
+            var newCover = new Cover
+            {
+                Title = dto.Title,
+                DigitalOnly = dto.DigitalOnly,
+                BookId = dto.BookId
+            };
 
-            return CreatedAtAction(nameof(GetCoverById), new { id = newCover.CoverId }, newCover);
+            await _coverRepo.AddAsync(newCover);
+
+            var coverDto = new CoverDto
+            {
+                CoverId = newCover.CoverId,
+                Title = newCover.Title,
+                DigitalOnly = newCover.DigitalOnly,
+                BookId = newCover.BookId,
+                BookTitle = null,
+                Artists = new List<CoverArtistShortDto>()
+            };
+
+            return CreatedAtAction(nameof(GetCoverById), new { id = newCover.CoverId }, coverDto);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCover(int id, Cover updatedCover)
+        public async Task<IActionResult> UpdateCover(int id, CreateCoverDto dto)
         {
-            var cover = await _context.Covers.FindAsync(id);
+            var cover = await _coverRepo.GetByIdAsync(id);
             if (cover == null)
                 return NotFound();
 
-            cover.Title = updatedCover.Title;
-            cover.DigitalOnly = updatedCover.DigitalOnly;
-            cover.BookId = updatedCover.BookId;
-            // Opdater evt. ArtistLinks her hvis nødvendigt (ellers håndteres det separat)
+            cover.Title = dto.Title;
+            cover.DigitalOnly = dto.DigitalOnly;
+            cover.BookId = dto.BookId;
 
-            await _context.SaveChangesAsync();
+            await _coverRepo.UpdateAsync(cover);
 
-            return Ok(cover);
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCover(int id)
         {
-            var cover = await _context.Covers.FindAsync(id);
+            var cover = await _coverRepo.GetByIdAsync(id);
             if (cover == null)
                 return NotFound();
 
-            _context.Covers.Remove(cover);
-            await _context.SaveChangesAsync();
+            await _coverRepo.DeleteAsync(id);
 
-            return Ok(cover);
+            return NoContent();
         }
     }
 }

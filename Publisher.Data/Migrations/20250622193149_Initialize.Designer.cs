@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Publisher.Data.Data;
 
@@ -11,9 +12,11 @@ using Publisher.Data.Data;
 namespace Publisher.Data.Migrations
 {
     [DbContext(typeof(PublisherDbContext))]
-    partial class PublisherDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250622193149_Initialize")]
+    partial class Initialize
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
