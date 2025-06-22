@@ -21,5 +21,6 @@ namespace Publisher.Api.Tests
             Assert.AreEqual("Hardcover", cover.Title);
             Assert.IsTrue(cover.DigitalOnly);
         }
+        // Where is it
     }
 }
