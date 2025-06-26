@@ -111,6 +111,8 @@ namespace Publisher.Api_Program.Controllers
         public async Task<IActionResult> DeleteBook(int id)
         {
             var book = await _bookRepo.GetByIdAsync(id);
+         //   if (book.BookId == 1)
+         //       return bookid;
             if (book == null)
                 return NotFound();
 

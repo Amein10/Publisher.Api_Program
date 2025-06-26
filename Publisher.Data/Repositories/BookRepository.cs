@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Publisher.Data.Data;
 using Publisher.Domain.Models;
+using System.Runtime.Versioning;
 
 namespace Publisher.Domain.Repositories
 {
@@ -18,6 +19,7 @@ namespace Publisher.Domain.Repositories
             return await _context.Books
                 .Include(b => b.Author)
                 .Include(b => b.Cover)
+                .Include(b => b.Author.FirstName + b.Author.LastName)        
                 .ToListAsync();
         }
 
